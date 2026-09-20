@@ -1,0 +1,18 @@
+.env
+data/
+geoip/*.mmdb
+.venv/
+local-*.db
+__pycache__/
+*.py[cod]
+*.tar
+
+# 运行时数据与本地环境
+*.db
+*.log
+*.sqlite3
+routecheck.tar
+selftest_*.txt
+.idea/
+.vscode/
+.DS_Store

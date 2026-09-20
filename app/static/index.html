@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RouteCheck V2026.9.16</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, "Segoe UI", "Microsoft YaHei", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0f172a; color: #e5e7eb; }
+    main { max-width: 1500px; margin: 0 auto; padding: 20px 24px 56px; }
+    h1 { font-size: 20px; margin: 0; }
+    h2 { font-size: 15px; margin: 0 0 12px; color: #cbd5e1; font-weight: 600; }
+    p.hint, .hint { color: #94a3b8; font-size: 12px; line-height: 1.7; margin: 8px 0 0; }
+    header.top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+    .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #1d4ed8; color: #fff; }
+    a.badge { text-decoration: none; }
+    a.badge:hover { background: #1e40af; }
+    .pill { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid #374151; color: #94a3b8; }
+    .pill.ok { border-color: #15803d; color: #86efac; }
+    .pill.bad { border-color: #b91c1c; color: #fca5a5; }
+    .panel { background: #1f2937; border: 1px solid #374151; border-radius: 12px; padding: 16px; margin: 14px 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; }
+    label { display: block; font-size: 12px; color: #9ca3af; margin-bottom: 5px; }
+    input, select { width: 100%; background: #0f172a; border: 1px solid #374151; border-radius: 8px; color: #e5e7eb; padding: 8px 10px; font-size: 13px; }
+    input:focus, select:focus { outline: 1px solid #2563eb; border-color: #2563eb; }
+    button { background: #2563eb; border: 0; color: #fff; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+    button:hover { filter: brightness(1.12); }
+    button.ghost { background: #374151; }
+    button.reject { background: #4b5563; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .row-actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .checkbox { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #cbd5e1; padding-bottom: 8px; }
+    .checkbox input { width: auto; }
+    .status-msg { font-size: 13px; }
+    .status-msg.ok { color: #86efac; }
+    .status-msg.bad { color: #fca5a5; }
+    .cards { display: flex; gap: 12px; flex-wrap: wrap; margin: 14px 0; }
+    .card { background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 12px 16px; min-width: 110px; }
+    .card span { font-size: 12px; color: #9ca3af; }
+    .card strong { display: block; font-size: 22px; margin-top: 4px; }
+    table { width: 100%; table-layout: fixed; border-collapse: collapse; background: #1f2937; border-radius: 10px; }
+    th, td { padding: 9px 10px; border-bottom: 1px solid #374151; text-align: left; font-size: 13px; vertical-align: top; overflow-wrap: anywhere; }
+    th { color: #9ca3af; font-weight: 600; background: #111827; position: relative; user-select: none; }
+    th.sortable { cursor: pointer; padding-right: 18px; }
+    th.sortable:hover { color: #e5e7eb; }
+    th .sort-mark { position: absolute; right: 6px; color: #60a5fa; font-size: 11px; }
+    th .grip { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 2; }
+    th .grip:hover, body.col-resizing th .grip { background: #2563eb; }
+    body.col-resizing { cursor: col-resize; }
+    td.domain { font-family: ui-monospace, Consolas, monospace; color: #93c5fd; }
+    td.center { text-align: center; }
+    .flag { font-size: 16px; }
+    .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid #475569; color: #cbd5e1; white-space: nowrap; }
+    .tag.direct_candidate { border-color: #15803d; color: #86efac; }
+    .tag.approved { border-color: #2563eb; color: #93c5fd; }
+    .tag.rejected { border-color: #b91c1c; color: #fca5a5; }
+    .tag.review { border-color: #a16207; color: #fcd34d; }
+    .tag.pending { border-color: #475569; color: #cbd5e1; }
+    .rule { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+    .rule .payload { color: #93c5fd; }
+    .rule .manual { color: #fcd34d; font-size: 11px; margin-left: 4px; }
+    .rule .covered { color: #94a3b8; font-size: 11px; }
+    select.rule-select { width: 100%; font-size: 12px; padding: 4px 6px; background: #0f172a; }
+    .cell-actions button { margin: 0 4px 4px 0; padding: 5px 9px; font-size: 12px; }
+    .cell-actions .rule-select { margin-bottom: 6px; }
+    .evidence .reason { color: #e2e8f0; }
+    details { margin-top: 6px; }
+    summary { cursor: pointer; }
+    details.evidence-box > summary { color: #93c5fd; font-size: 12px; }
+    details.panel > summary { list-style: none; font-size: 15px; font-weight: 600; color: #cbd5e1; }
+    details.panel > summary::-webkit-details-marker { display: none; }
+    details.panel > summary::before { content: '▸ '; color: #60a5fa; }
+    details.panel[open] > summary::before { content: '▾ '; }
+    details.panel[open] > summary { margin-bottom: 12px; }
+    details.panel { padding: 14px 16px; }
+    .panel-status { font-size: 12px; color: #94a3b8; margin-left: 10px; font-weight: 400; }
+    .header-actions { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .action-group { display: flex; align-items: center; gap: 8px; background: #1f2937; border: 1px solid #374151; border-radius: 10px; padding: 6px 10px; }
+    .action-group .group-label { font-size: 12px; color: #94a3b8; }
+    .action-group button { padding: 5px 10px; font-size: 12px; }
+    button.danger { background: #b91c1c; }
+    button.danger:hover { background: #dc2626; }
+    pre.ev-body { margin: 6px 0 0; max-height: 132px; overflow: auto; background: #0f172a; border: 1px solid #374151; border-radius: 8px; padding: 8px; font-size: 11px; line-height: 1.5; color: #94a3b8; white-space: pre-wrap; }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 6px 0 12px; }
+    .toolbar input, .toolbar select { width: auto; min-width: 150px; }
+    .export-links { margin-left: auto; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .empty { color: #94a3b8; padding: 18px; text-align: center; }
+    a { color: #93c5fd; }
+    code { color: #93c5fd; }
+    .geo-file { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #cbd5e1; }
+    .geo-file.missing { color: #fca5a5; }
+  </style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1>RouteCheck</h1>
+    <a class="badge" href="https://github.com/Seven1echo/RouteCheck" target="_blank" rel="noreferrer" title="项目主页">V2026.9.16</a>
+    <span class="pill" id="controller-pill">控制器：未检测</span>
+    <span class="pill" id="geoip-pill">GeoIP：未检测</span>
+    <div class="header-actions">
+      <div class="action-group">
+        <span class="group-label">数据</span>
+        <button class="ghost" onclick="exportData()">导出数据</button>
+        <button class="ghost" onclick="document.querySelector('#import-file').click()">导入数据</button>
+        <button class="danger" onclick="clearData()">清空数据</button>
+        <input type="file" id="import-file" accept="application/json,.json" hidden onchange="importData(this)">
+      </div>
+      <div class="action-group">
+        <span class="group-label">直连规则</span>
+        <a href="/api/rules/direct.txt" target="_blank">TYPE</a>
+        <a href="/api/rules/direct.yaml" target="_blank">YAML</a>
+        <a href="/api/rules/direct.json" target="_blank">JSON</a>
+      </div>
+    </div>
+  </header>
+  <p class="hint">采集漏网之鱼 → 直连探测 + GeoIP 归属判定 → 人工批准后导出直连规则。</p>
+
+  <details class="panel" id="panel-controller">
+    <summary>Mihomo 控制器设置<span class="panel-status" id="panel-controller-status"></span></summary>
+    <div class="grid">
+      <div><label for="s-host">IP / 主机</label><input id="s-host" placeholder="192.168.1.1" autocomplete="off"></div>
+      <div><label for="s-port">端口</label><input id="s-port" inputmode="numeric" placeholder="9090"></div>
+      <div><label for="s-secret">密钥 (secret)</label><input id="s-secret" type="password" placeholder="留空表示无密钥" autocomplete="off"></div>
+      <div><label for="s-mode">采集模式</label>
+        <select id="s-mode">
+          <option value="leak_rule">仅漏网之鱼 / MATCH</option>
+          <option value="all_proxy">全部代理连接</option>
+        </select>
+      </div>
+      <div><label for="s-poll">采集间隔（秒）</label><input id="s-poll" inputmode="numeric" placeholder="5"></div>
+      <div class="checkbox"><input type="checkbox" id="s-online"><label for="s-online" style="margin:0">无本地库时在线查询城市</label></div>
+    </div>
+    <div class="row-actions">
+      <button onclick="saveSettings()">保存设置</button>
+      <button class="ghost" onclick="testSettings()">测试连接</button>
+      <button class="ghost" onclick="toggleSecret()">显示/隐藏密钥</button>
+      <button class="ghost" onclick="resetSettings()">恢复环境变量默认</button>
+      <span class="status-msg" id="settings-msg"></span>
+    </div>
+  </details>
+
+  <details class="panel" id="panel-geoip">
+    <summary>地理数据库<span class="panel-status" id="panel-geoip-status"></span></summary>
+    <p class="hint">
+      镜像里不预装 mmdb 文件，部署完成在这里下载即可，下载地址可随意改（支持任意 http/https）。
+      国家库默认取 <strong>MetaCubeX</strong> 的 <code>country.mmdb</code>（jsDelivr 镜像）；MetaCubeX 没有城市库，城市库默认取 P3TERX 的 GeoLite2-City。
+      城市库约 60MB+，国内网络可能需要几分钟。
+    </p>
+    <div class="grid" style="margin-top:12px">
+      <div><label for="g-country-url">国家库下载地址</label><input id="g-country-url" spellcheck="false"></div>
+      <div><label>&nbsp;</label><button onclick="downloadGeoip('country')" id="g-country-btn">下载国家库</button>
+        <button class="ghost" onclick="resetGeoipUrl('country')">恢复默认</button></div>
+      <div><label for="g-city-url">城市库下载地址</label><input id="g-city-url" spellcheck="false"></div>
+      <div><label>&nbsp;</label><button onclick="downloadGeoip('city')" id="g-city-btn">下载城市库</button>
+        <button class="ghost" onclick="resetGeoipUrl('city')">恢复默认</button></div>
+    </div>
+    <div class="row-actions">
+      <button onclick="saveGeoipUrls()">保存下载地址</button>
+      <div class="checkbox" style="padding:0"><input type="checkbox" id="g-auto"><label for="g-auto" style="margin:0">启动时自动下载缺失的库</label></div>
+      <span class="status-msg" id="geoip-msg"></span>
+    </div>
+    <div class="hint" id="geoip-files"></div>
+  </details>
+
+  <div class="cards" id="stats"></div>
+
+  <div class="toolbar">
+    <select id="analyze-scope" title="重新分析范围">
+      <option value="pending">范围：待分析</option>
+      <option value="missing_geo">范围：缺归属地（补国家/城市）</option>
+      <option value="unresolved">范围：人工审核 / 建议直连</option>
+      <option value="all">范围：全部（保留已批准状态）</option>
+    </select>
+    <button onclick="analyze()">开始分析</button>
+    <button class="ghost" onclick="load()">刷新</button>
+    <select id="filter-status" onchange="load()">
+      <option value="">全部状态</option>
+      <option value="pending">待分析</option>
+      <option value="review">人工审核</option>
+      <option value="direct_candidate">建议直连</option>
+      <option value="approved">已批准</option>
+      <option value="rejected">已拒绝</option>
+    </select>
+    <input id="filter-search" placeholder="搜索域名" oninput="render()">
+    <button class="ghost" onclick="resetColumns()">恢复列宽</button>
+  </div>
+  <p class="hint">
+    点表头排序，拖动表头右边缘可调列宽（会自动记住）。「规则」列是当前生效的匹配类型，「操作」列上方的下拉框可手动覆盖自动判断；
+    主域名带 <code>+.域名</code> 后缀规则时，其子域不会重复导出。数据导出/导入/清空和直连规则导出在右上角。
+  </p>
+
+  <table>
+    <colgroup id="cols"></colgroup>
+    <thead><tr id="head"></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="empty" id="empty" style="display:none">暂无数据，等待采集或调整筛选条件。</div>
+</main>
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const flag = code => /^[A-Za-z]{2}$/.test(code || '') ? String.fromCodePoint(...[...code.toUpperCase()].map(c => 0x1F1E6 + c.charCodeAt(0) - 65)) : '';
+const STATUS_ZH = { pending: '待分析', review: '人工审核', direct_candidate: '建议直连', approved: '已批准', rejected: '已拒绝' };
+const statusZh = value => STATUS_ZH[value] || value || '';
+
+const COLUMNS = [
+  { key: 'domain', label: '域名', width: 19, sortable: true },
+  { key: 'hit_count', label: '命中', width: 5, sortable: true },
+  { key: 'status', label: '状态', width: 8, sortable: true },
+  { key: 'score', label: '分数', width: 5, sortable: true },
+  { key: 'country', label: '国家', width: 7, sortable: true },
+  { key: 'city', label: '城市', width: 8, sortable: true },
+  { key: 'evidence', label: '证据', width: 21.5, sortable: false },
+  { key: 'rule', label: '规则', width: 13, sortable: true },
+  { key: 'actions', label: '操作', width: 13.5, sortable: false },
+];
+const WIDTH_KEY = 'mdt-column-widths';
+const SORT_KEY = 'mdt-sort';
+const PANEL_KEY = 'mdt-panels';
+let rows = [];
+let sort = { key: '', dir: 'desc' };
+let widths = [];
+
+function loadPrefs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(WIDTH_KEY) || 'null');
+    if (Array.isArray(saved) && saved.length === COLUMNS.length) widths = saved;
+    const savedSort = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
+    if (savedSort && savedSort.key) sort = savedSort;
+  } catch (e) { /* ignore */ }
+  if (!widths.length) widths = COLUMNS.map(c => c.width);
+}
+
+function initPanels() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(PANEL_KEY) || '{}') || {}; } catch (e) {}
+  document.querySelectorAll('details.panel').forEach(panel => {
+    panel.open = !!saved[panel.id];
+    panel.addEventListener('toggle', () => {
+      const state = {};
+      document.querySelectorAll('details.panel').forEach(p => { if (p.open) state[p.id] = true; });
+      try { localStorage.setItem(PANEL_KEY, JSON.stringify(state)); } catch (e) {}
+    });
+  });
+}
+function saveWidths() { try { localStorage.setItem(WIDTH_KEY, JSON.stringify(widths)); } catch (e) {} }
+function resetColumns() { widths = COLUMNS.map(c => c.width); saveWidths(); drawTable(); }
+
+function drawTable() {
+  document.querySelector('#cols').innerHTML = widths.map(w => `<col style="width:${w}%">`).join('');
+  document.querySelector('#head').innerHTML = COLUMNS.map((c, i) => {
+    const mark = sort.key === c.key ? `<span class="sort-mark">${sort.dir === 'asc' ? '▲' : '▼'}</span>` : '';
+    return `<th class="${c.sortable ? 'sortable' : ''}" data-i="${i}" title="${c.sortable ? '点击排序' : ''}">${esc(c.label)}${mark}<span class="grip" data-i="${i}"></span></th>`;
+  }).join('');
+  document.querySelectorAll('th.sortable').forEach(th => th.addEventListener('click', e => {
+    if (e.target.classList.contains('grip')) return;
+    toggleSort(COLUMNS[Number(th.dataset.i)].key);
+  }));
+  document.querySelectorAll('th .grip').forEach(grip => grip.addEventListener('mousedown', startResize));
+}
+
+function toggleSort(key) {
+  if (sort.key === key) sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
+  else sort = { key, dir: key === 'score' || key === 'hit_count' ? 'desc' : 'asc' };
+  try { localStorage.setItem(SORT_KEY, JSON.stringify(sort)); } catch (e) {}
+  drawTable();
+  render();
+}
+
+function startResize(event) {
+  event.preventDefault();
+  const index = Number(event.currentTarget.dataset.i);
+  const table = document.querySelector('table');
+  const tableWidth = table.getBoundingClientRect().width;
+  const startX = event.clientX;
+  const startWidth = widths[index];
+  document.body.classList.add('col-resizing');
+  const onMove = move => {
+    const delta = (move.clientX - startX) / tableWidth * 100;
+    const cols = [...widths];
+    cols[index] = Math.max(4, startWidth + delta);
+    const others = cols.reduce((sum, w, i) => i === index ? sum : sum + w, 0);
+    const scale = others > 0 ? (100 - cols[index]) / others : 1;
+    widths = cols.map((w, i) => i === index ? cols[index] : Math.max(3, w * scale));
+    document.querySelector('#cols').innerHTML = widths.map(w => `<col style="width:${w}%">`).join('');
+  };
+  const onUp = () => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.classList.remove('col-resizing');
+    saveWidths();
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+function sortValue(row, key) {
+  switch (key) {
+    case 'domain': return row.domain || '';
+    case 'hit_count': return Number(row.hit_count || 0);
+    case 'status': return row.status || '';
+    case 'score': return Number(row.score || 0);
+    case 'country': return `${row.country || ''}${row.country_name || ''}`;
+    case 'city': return row.city || '';
+    case 'rule': return `${row.rule_type_effective || ''}${row.rule_payload || ''}`;
+    default: return '';
+  }
+}
+
+function sortedRows() {
+  const keyword = document.querySelector('#filter-search').value.trim().toLowerCase();
+  let list = keyword ? rows.filter(x => (x.domain || '').toLowerCase().includes(keyword)) : [...rows];
+  if (sort.key) {
+    list.sort((a, b) => {
+      const left = sortValue(a, sort.key);
+      const right = sortValue(b, sort.key);
+      if (typeof left === 'number' && typeof right === 'number') return sort.dir === 'asc' ? left - right : right - left;
+      const cmp = String(left).localeCompare(String(right), 'zh-Hans-CN');
+      return sort.dir === 'asc' ? cmp : -cmp;
+    });
+  }
+  return list;
+}
+
+function render() {
+  const list = sortedRows();
+  document.querySelector('#empty').style.display = list.length ? 'none' : 'block';
+  document.querySelector('#rows').innerHTML = list.map(x => {
+    const code = x.country || '';
+    const cnBadge = x.cn_direct ? `<span title="直连探测成功且解析地址均为国内"> ${esc(flag('CN'))}</span>` : '';
+    const countryCell = code
+      ? `<div><small>${esc(code)}</small> ${esc(x.country_name || '')}</div>`
+      : '<span style="color:#64748b">—</span>';
+    const location = x.city ? esc(x.city) : '<span style="color:#64748b">—</span>';
+    const covered = x.rule_covered_by ? `<div class="covered">已被 ${esc(x.rule_covered_by)} 覆盖</div>` : '';
+    const ruleCell = `<div class="rule">${esc(x.rule_type_effective || '')}<span class="manual">${x.rule_auto ? 'auto' : '手动'}</span>
+      <div class="payload">${esc(x.rule_payload || '')}</div>${covered}</div>`;
+    const actions = `<select class="rule-select" onchange="setRuleType('${encodeURIComponent(x.domain)}', this.value)">
+        <option value="auto"${x.rule_auto ? ' selected' : ''}>auto（自动判断）</option>
+        <option value="DOMAIN"${!x.rule_auto && x.rule_type_effective === 'DOMAIN' ? ' selected' : ''}>DOMAIN（域名）</option>
+        <option value="DOMAIN-SUFFIX"${!x.rule_auto && x.rule_type_effective === 'DOMAIN-SUFFIX' ? ' selected' : ''}>DOMAIN-SUFFIX（域名后缀）</option>
+      </select>
+      <div>${x.status !== 'approved' ? `<button onclick="act('${encodeURIComponent(x.domain)}','approve')">批准</button>` : ''}<button class="reject" onclick="act('${encodeURIComponent(x.domain)}','reject')">拒绝</button></div>`;
+    return `<tr>
+      <td class="domain">${esc(x.domain)}${cnBadge}</td>
+      <td class="center">${x.hit_count}</td>
+      <td><span class="tag ${esc(x.status)}">${esc(statusZh(x.status))}</span></td>
+      <td class="center">${Number(x.score || 0).toFixed(2)}</td>
+      <td class="center">${countryCell}</td>
+      <td>${location}</td>
+      <td class="evidence"><div class="reason">${esc(x.reason)}</div>
+        <details class="evidence-box"><summary>证据详情</summary><pre class="ev-body">${esc(JSON.stringify(x.evidence || {}, null, 1))}</pre></details>
+      </td>
+      <td>${ruleCell}</td>
+      <td class="cell-actions">${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function msg(text, ok, target) {
+  const el = document.querySelector(target || '#settings-msg');
+  el.textContent = text || '';
+  el.className = 'status-msg ' + (ok ? 'ok' : 'bad');
+}
+
+async function loadSettings() {
+  const s = await fetch('/api/settings').then(r => r.json());
+  document.querySelector('#s-host').value = s.mihomo_host || '';
+  document.querySelector('#s-port').value = s.mihomo_port || '';
+  document.querySelector('#s-secret').value = s.mihomo_secret || '';
+  document.querySelector('#s-mode').value = s.capture_mode || 'leak_rule';
+  document.querySelector('#s-poll').value = s.poll_interval || 5;
+  document.querySelector('#s-online').checked = !!s.online_geo_lookup;
+  document.querySelector('#g-country-url').value = s.geoip_country_url || '';
+  document.querySelector('#g-city-url').value = s.geoip_city_url || '';
+  document.querySelector('#g-auto').checked = !!s.auto_download_geoip;
+  window.__defaults = s.defaults || {};
+  setPill(`控制器：${s.mihomo_host}:${s.mihomo_port}`, '');
+  document.querySelector('#panel-controller-status').textContent = `${s.mihomo_host}:${s.mihomo_port}（${s.capture_mode === 'all_proxy' ? '全部代理连接' : '仅漏网之鱼'}）`;
+}
+
+function setPill(text, cls, id) {
+  const el = document.querySelector(id || '#controller-pill');
+  el.textContent = text;
+  el.className = 'pill ' + (cls || '');
+}
+
+async function post(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  return data;
+}
+
+async function saveSettings() {
+  try {
+    const s = await post('/api/settings', {
+      mihomo_host: document.querySelector('#s-host').value,
+      mihomo_port: document.querySelector('#s-port').value,
+      mihomo_secret: document.querySelector('#s-secret').value,
+      capture_mode: document.querySelector('#s-mode').value,
+      poll_interval: document.querySelector('#s-poll').value,
+      online_geo_lookup: document.querySelector('#s-online').checked,
+    });
+    msg(`已保存 → ${s.mihomo_host}:${s.mihomo_port}`, true);
+    setPill(`控制器：${s.mihomo_host}:${s.mihomo_port}`, '');
+  } catch (e) { msg('保存失败：' + e.message, false); }
+}
+
+async function testSettings() {
+  msg('正在测试连接…', true);
+  const res = await post('/api/settings/test');
+  if (res.ok) {
+    setPill(`控制器：${res.url} 正常`, 'ok');
+    msg(`连接正常，版本 ${res.version || '未知'}，当前连接数 ${res.connections}${res.dns_available ? '，DNS 接口可用' : '，DNS 接口不可用'}`, true);
+  } else {
+    setPill(`控制器：${res.url} 不通`, 'bad');
+    msg(res.message || '连接失败', false);
+  }
+}
+
+async function resetSettings() {
+  await post('/api/settings/reset');
+  await loadSettings();
+  msg('已恢复为环境变量默认值', true);
+}
+
+function toggleSecret() {
+  const el = document.querySelector('#s-secret');
+  el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+async function saveGeoipUrls() {
+  try {
+    await post('/api/settings', {
+      geoip_country_url: document.querySelector('#g-country-url').value,
+      geoip_city_url: document.querySelector('#g-city-url').value,
+      auto_download_geoip: document.querySelector('#g-auto').checked,
+    });
+    msg('下载地址已保存', true, '#geoip-msg');
+  } catch (e) { msg('保存失败：' + e.message, false, '#geoip-msg'); }
+}
+
+function resetGeoipUrl(kind) {
+  const defaults = window.__defaults || {};
+  document.querySelector(kind === 'city' ? '#g-city-url' : '#g-country-url').value =
+    kind === 'city' ? (defaults.geoip_city_url || '') : (defaults.geoip_country_url || '');
+  msg('已填入默认地址，记得点「保存下载地址」', true, '#geoip-msg');
+}
+
+let geoipTimer = null;
+async function downloadGeoip(kind) {
+  try {
+    const res = await post('/api/geoip/download', { kind, url: document.querySelector(kind === 'city' ? '#g-city-url' : '#g-country-url').value });
+    msg(res.message, true, '#geoip-msg');
+    if (res.started) pollGeoip(1800);
+  } catch (e) { msg('下载失败：' + e.message, false, '#geoip-msg'); }
+}
+
+async function loadGeoip() {
+  const data = await fetch('/api/geoip').then(r => r.json());
+  const files = data.files || {};
+  const describe = (info, name) => {
+    if (!info) return '';
+    const state = info.exists ? `已就绪 ${(info.size / 1024 / 1024).toFixed(1)}MB ${info.database_type || ''} ${info.mtime}` : '未下载';
+    return `<div class="geo-file ${info.exists ? '' : 'missing'}">${name}：${esc(info.path)} — ${esc(state)}</div>`;
+  };
+  document.querySelector('#geoip-files').innerHTML = describe(files.country, '国家库') + describe(files.city, '城市库');
+  const ready = (files.country && files.country.exists) || (files.city && files.city.exists);
+  setPill(ready ? 'GeoIP：已就绪' : 'GeoIP：未下载（用在线查询兜底）', ready ? 'ok' : 'bad', '#geoip-pill');
+  const parts = ['country', 'city'].map(kind => {
+    const info = files[kind] || {};
+    return `${kind === 'country' ? '国家库' : '城市库'}${info.exists ? '已就绪' : '未下载'}`;
+  });
+  document.querySelector('#panel-geoip-status').textContent = parts.join(' / ');
+  const dl = data.download || {};
+  if (dl.running) {
+    const mb = ((dl.bytes || 0) / 1024 / 1024).toFixed(1);
+    msg(`正在下载 ${dl.kind} 数据库… 已接收 ${mb}MB`, true, '#geoip-msg');
+    document.querySelector('#g-country-btn').disabled = true;
+    document.querySelector('#g-city-btn').disabled = true;
+  } else {
+    document.querySelector('#g-country-btn').disabled = false;
+    document.querySelector('#g-city-btn').disabled = false;
+    if (dl.message && !geoipTimer) msg(dl.message, dl.ok !== false, '#geoip-msg');
+  }
+  return data;
+}
+
+function pollGeoip(intervalMs) {
+  if (geoipTimer) clearInterval(geoipTimer);
+  geoipTimer = setInterval(async () => {
+    const data = await loadGeoip();
+    if (!data.download || !data.download.running) {
+      clearInterval(geoipTimer);
+      geoipTimer = null;
+      load();
+    }
+  }, intervalMs);
+}
+
+async function load() {
+  const status = document.querySelector('#filter-status').value;
+  const [s, d] = await Promise.all([
+    fetch('/api/stats').then(r => r.json()),
+    fetch('/api/candidates' + (status ? `?status=${encodeURIComponent(status)}` : '')).then(r => r.json()),
+  ]);
+  document.querySelector('#stats').innerHTML = Object.entries(s).map(([k, v]) => `<div class="card"><span>${esc(k === 'total' ? '总计' : statusZh(k))}</span><strong>${v}</strong></div>`).join('');
+  rows = d;
+  render();
+}
+
+async function act(d, a) { await fetch(`/api/domains/${d}/${a}`, { method: 'POST' }); load(); }
+async function setRuleType(d, value) {
+  try { await post(`/api/domains/${d}/rule-type`, { rule_type: value }); }
+  catch (e) { msg('规则类型修改失败：' + e.message, false); }
+  load();
+}
+
+async function exportData() {
+  try {
+    const res = await fetch('/api/data/export');
+    const blob = await res.blob();
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `routecheck-data-${stamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    msg('数据已导出到浏览器下载目录', true);
+  } catch (e) { msg('导出失败：' + e.message, false); }
+}
+
+async function importData(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  try {
+    const body = JSON.parse(await file.text());
+    const res = await post('/api/data/import', body);
+    msg(`导入完成：新增 ${res.inserted} 条，更新 ${res.updated} 条${res.skipped ? `，跳过 ${res.skipped} 条` : ''}`, true);
+    load();
+  } catch (e) { msg('导入失败：' + e.message, false); }
+}
+
+async function clearData() {
+  const total = document.querySelectorAll('#rows tr').length;
+  if (!confirm(`确定清空全部采集数据（当前筛出 ${total} 行）？此操作不可恢复。`)) return;
+  if (!confirm('再次确认：清空后无法恢复，建议先「导出数据」备份。继续吗？')) return;
+  try {
+    const res = await post('/api/data/clear', { confirm: 'yes' });
+    msg(`已清空 ${res.cleared} 条记录`, true);
+    load();
+  } catch (e) { msg('清空失败：' + e.message, false); }
+}
+async function analyze() {
+  const scope = document.querySelector('#analyze-scope').value;
+  const btn = document.querySelector('#analyze-scope').nextElementSibling;
+  btn.disabled = true;
+  msg(`正在分析（${scope}）…`, true);
+  try {
+    const res = await post('/api/analyze', { scope });
+    msg(`分析完成：命中 ${res.matched} 条，成功 ${res.analyzed} 条${res.failed ? `，失败 ${res.failed} 条` : ''}`, true);
+  } catch (e) { msg('分析失败：' + e.message, false); }
+  btn.disabled = false;
+  load();
+}
+
+loadPrefs();
+initPanels();
+drawTable();
+loadSettings().then(loadGeoip).then(load);
+setInterval(load, 15000);
+setInterval(loadGeoip, 30000);
+</script>
+</body>
+</html>

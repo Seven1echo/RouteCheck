@@ -1,0 +1,23 @@
+name: routecheck
+
+services:
+  routecheck:
+    build: .
+    image: routecheck:v2026.9.16
+    container_name: routecheck
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_NAME: RouteCheck
+      APP_VERSION: V2026.9.16
+    ports:
+      - "8787:8787"
+    volumes:
+      - ./data:/data
+      - ./geoip:/geoip
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/api/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
