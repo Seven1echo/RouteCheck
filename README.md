@@ -5,7 +5,7 @@
 
 
 
-## 工作方式
+## 一、工作方式
 1. 周期调用 Mihomo 控制器的 `GET /connections`。
 2. 默认只采集最终规则命中 `MATCH` / `漏网之鱼` 且实际走了代理链的连接。
 3. 域名去重并记录命中次数、最近出现时间、规则、策略链和目标地址。
@@ -18,7 +18,7 @@
 
 
 
-## 部署到 Linux （Docker Hub 镜像）
+## 二、部署到 Linux （Docker Hub 镜像）
 不想自己构建镜像时，直接用 Docker Hub 上的 **RouteCheck 部署镜像**。
 
 ### 1. 创建数据目录
@@ -44,7 +44,7 @@ docker run -d \
 ```
 
 
-## 部署到 Windows（Docker Hub 镜像）
+## 三、部署到 Windows（Docker Hub 镜像）
 ### 1. 创建 Docker Volume
 创建 RouteCheck 数据卷（）：
 ```
@@ -70,38 +70,34 @@ docker run -d `
 ```
 
 
-
-### 访问
+## 四、使用方法
+### 1. 访问
 容器启动后访问：
 ```text
 http://<服务器IP>:8787
 ```
 
-### 常用命令
+### 2. 常用命令
 查看运行状态：
 ```bash
 docker ps --filter name=routecheck
 ```
 
-查看日志：
+### 3. 查看日志：
 ```bash
 docker logs -f routecheck
 ```
 
-停止容器：
+### 4. 停止容器：
 ```bash
 docker stop routecheck
 ```
 
-删除容器：
+### 5. 删除容器：
 ```bash
 docker rm -f routecheck
 ```
-
-
-
-## 网页配置（新增）
-
+### 6. 网页配置
 打开首页顶部的 **Mihomo 控制器设置** 面板即可在线修改，保存后立即生效并写入数据库，重启容器后依然保留：
 
 | 项目 | 说明 |
@@ -117,7 +113,7 @@ docker rm -f routecheck
 
 网页里保存的值优先于 `.env` 中的环境变量。
 
-## 地理数据库（部署后下载，镜像不预装）
+## 五、地理数据库（部署后下载，镜像不预装）
 
 网页顶部的「Mihomo 控制器设置」和「地理数据库」两个面板都是**可折叠**的（默认收起，标题右侧直接显示当前状态，展开状态记在浏览器里）；右上角是「数据」（导出/导入/清空）和「直连规则」（TYPE/YAML/JSON）两组按钮。
 
@@ -132,7 +128,7 @@ docker rm -f routecheck
 
 > 之前已经分析过的域名不会自动补归属地，下载完库之后用工具栏的 **范围：缺归属地（补国家/城市）** 重新分析一次即可。
 
-## 归属地标注
+## 六、归属地标注
 
 - **国家** 列：只显示国家缩写 + 中文名，例如 `CN 中国`、`US 美国`（不再叠国旗，避免重复）。
 - **城市** 列：显示国内城市，例如 `广东深圳`（本地城市库或在线查询得出）。
@@ -145,7 +141,7 @@ geoip/GeoLite2-City.mmdb
 geoip/GeoLite2-Country.mmdb
 ```
 
-## 关键配置
+## 七、关键配置
 
 | 变量 | 默认值 | 说明 |
 |---|---:|---|
@@ -166,7 +162,7 @@ geoip/GeoLite2-Country.mmdb
 | `AUTO_DIRECT_SCORE` | `0.85` | 自动进入建议直连的最低分数 |
 | `DATABASE_PATH` | `/data/routecheck.db` | SQLite 数据库路径 |
 
-## 接入 Nikki 规则
+## 八、接入 Nikki 规则
 容器生成的纯文本规则地址：
 `http://分析器IP:8787/api/rules/direct.txt`
 
@@ -202,7 +198,7 @@ geoip/GeoLite2-Country.mmdb
 
 
 
-## 重要限制
+## 九、重要限制
 
 - `connections` 是活动连接快照，短连接可能在下一次轮询前结束；生产环境建议把轮询设为 2~5 秒。
 - QUIC/UDP 连接的域名是否可见取决于 Mihomo sniff 设置；如只能看到 IP，工具不会把 IP 强行转换成域名。
