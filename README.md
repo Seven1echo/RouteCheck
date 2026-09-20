@@ -1,13 +1,11 @@
-# RouteCheck V2026.9.16
-
+# RouteCheck
 用于 OpenWrt + Nikki/Mihomo 的“漏网之鱼”域名采集、二次分析和直连规则生成器。
-
 项目主页：<https://github.com/Seven1echo/RouteCheck>
-
 ![界面预览](ui-preview.png)
 
-## 工作方式
 
+
+## 工作方式
 1. 周期调用 Mihomo 控制器的 `GET /connections`。
 2. 默认只采集最终规则命中 `MATCH` / `漏网之鱼` 且实际走了代理链的连接。
 3. 域名去重并记录命中次数、最近出现时间、规则、策略链和目标地址。
@@ -16,44 +14,24 @@
 6. 只有高置信度结果才进入“建议直连”，人工批准后才会进入导出规则。
 
 > 这是辅助工具，不可能仅凭一次连接 100% 判断“应该直连”。默认策略偏保守：探测失败或 GeoIP 不明确的域名保留为待审核。
+> 如果 Nikki/Mihomo 的控制器只监听本机，需要在 Nikki 的外部控制器设置中开放给 Docker 所在设备访问；不要把控制器端口暴露到公网。
 
-## 快速启动
 
-```powershell
-Copy-Item .env.example .env
-# 编辑 .env（也可以留空，启动后在网页里配置）
-docker compose up -d --build
-```
-
-浏览器访问 `http://OpenWrt_IP:8787`。
-
-如果使用已经导出的镜像包，不需要重新构建：
-
-```powershell
-docker load -i routecheck.tar
-docker compose up -d --no-build
-```
-
-如果 Nikki/Mihomo 的控制器只监听本机，需要在 Nikki 的外部控制器设置中开放给 Docker 所在设备访问；不要把控制器端口暴露到公网。
 
 ## 部署到 Linux 服务器（Docker Hub 镜像）
-
 不想自己构建镜像时，直接用 Docker Hub 上的 **RouteCheck 部署镜像**。
 
 ### 1. 创建数据目录
-
 ```bash
 mkdir -p /opt/routecheck/data /opt/routecheck/geoip
 ```
 
 ### 2. 拉取最新版镜像
-
 ```bash
 docker pull seven1echo/routecheck:latest
 ```
 
 ### 3. 创建并运行容器
-
 ```bash
 docker run -d \
   --name routecheck \
@@ -66,7 +44,6 @@ docker run -d \
 ```
 
 ### 参数说明
-
 | 参数 | 说明 |
 |---|---|
 | `-p 8787:8787` | Web 服务端口 |
@@ -76,41 +53,33 @@ docker run -d \
 | `--restart unless-stopped` | Docker 重启后自动启动 |
 
 ### 访问
-
 容器启动后访问：
-
 ```text
 http://<服务器IP>:8787
 ```
 
 ### 常用命令
-
 查看运行状态：
-
 ```bash
 docker ps --filter name=routecheck
 ```
 
 查看日志：
-
 ```bash
 docker logs -f routecheck
 ```
 
 停止容器：
-
 ```bash
 docker stop routecheck
 ```
 
 删除容器：
-
 ```bash
 docker rm -f routecheck
 ```
 
 ### 更新到最新版
-
 ```bash
 docker pull seven1echo/routecheck:latest
 
@@ -126,13 +95,7 @@ docker run -d \
   seven1echo/routecheck:latest
 ```
 
-### Docker Image
 
-```text
-seven1echo/routecheck:latest
-```
-
-`latest` 始终指向当前发布的最新版镜像。
 
 ## 网页配置（新增）
 
@@ -201,13 +164,10 @@ geoip/GeoLite2-Country.mmdb
 | `DATABASE_PATH` | `/data/routecheck.db` | SQLite 数据库路径 |
 
 ## 接入 Nikki 规则
-
 容器生成的纯文本规则地址：
-
 `http://分析器IP:8787/api/rules/direct.txt`
 
 导出的是带类型判断的 `type` / `payload` 结构（后缀规则带 `+.` 前缀）：
-
 ```yaml
 - type: DOMAIN
   payload:
@@ -219,7 +179,6 @@ geoip/GeoLite2-Country.mmdb
 ```
 
 类型判断规则：
-
 | 情况 | 输出 |
 |---|---|
 | 已批准的是站点主域名（apex，如 `0001700.xin`） | `DOMAIN-SUFFIX` + `+.0001700.xin`，覆盖它自己和所有子域 |
@@ -230,7 +189,6 @@ geoip/GeoLite2-Country.mmdb
 规则类型在网页表格「操作」列的上方下拉框里逐条切换（下方是批准/拒绝按钮），切换后立刻影响三种导出结果；「规则」列显示当前生效的类型和 payload。
 
 三种导出（网页工具栏上的链接同名）：
-
 | 链接 / 地址 | 内容 |
 |---|---|
 | 直连规则（TYPE）`/api/rules/direct.txt` | `- type:` / `payload:` 结构，后缀用 `+.域名` |
@@ -239,33 +197,7 @@ geoip/GeoLite2-Country.mmdb
 
 建议先在 Zashboard 中观察一段时间，确认没有误判后，再复制到你自己的 `RULE-SET`/自定义直连规则来源。应用规则后重新抓取，观察域名是否还命中“漏网之鱼”。
 
-## API
 
-- `GET /api/health`：健康状态（含当前控制器地址与版本）
-- `GET /api/stats`：统计
-- `GET /api/candidates?status=pending`：域名列表（含国家、城市、直连标注）
-- `GET /api/settings` / `POST /api/settings`：读取、修改控制器配置
-- `POST /api/settings/test`：测试控制器连通性
-- `POST /api/settings/reset`：清除网页覆盖配置
-- `POST /api/analyze`：立即分析一批待处理域名
-- `POST /api/analyze`：重新分析，body `{"scope":"pending|missing_geo|unresolved|all","limit":50}`；已批准/已拒绝只刷新证据、状态不变
-- `GET /api/geoip`：GeoIP 库状态与下载进度
-- `POST /api/geoip/download`：下载库，body `{"kind":"country|city","url":"可选自定义地址"}`
-- `GET /api/data/export`：导出全部采集数据（JSON，可直接再导入）
-- `POST /api/data/import`：导入数据，body 为导出文件内容，按域名合并（新增/更新）
-- `POST /api/data/clear`：清空采集数据，需要 body `{"confirm":"yes"}`
-- `POST /api/domains/{domain}/approve`：批准直连
-- `POST /api/domains/{domain}/reject`：拒绝建议
-- `POST /api/domains/{domain}/rule-type`：修改导出规则类型（`auto` / `DOMAIN` / `DOMAIN-SUFFIX`）
-- `GET /api/rules/direct.txt` / `direct.yaml` / `direct.json`：已批准直连规则
-
-## 从旧版本升级
-
-1. `docker rm -f mihomo-direct-tester`（旧容器名；更早的版本是 `mihomo-leak-hunter`）。
-2. `docker load -i routecheck.tar`。
-3. 新目录里执行 `docker compose up -d --no-build`。
-
-数据库默认文件名是 `routecheck.db`；如果 `./data/` 里只有旧的 `mihomo-direct-tester.db` 或 `leak-hunter.db`，启动时会自动复制一份，历史采集数据不会丢。
 
 ## 重要限制
 
