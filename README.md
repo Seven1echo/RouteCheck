@@ -18,7 +18,7 @@
 
 
 
-## 部署到 Linux 服务器（Docker Hub 镜像）
+## 部署到 Linux （Docker Hub 镜像）
 不想自己构建镜像时，直接用 Docker Hub 上的 **RouteCheck 部署镜像**。
 
 ### 1. 创建数据目录
@@ -45,19 +45,19 @@ docker run -d \
 
 
 ## 部署到 Windows（Docker Hub 镜像）
-1. 创建 Docker Volume
+### 1. 创建 Docker Volume
 创建 RouteCheck 数据卷（）：
 ```
 docker volume create routecheck-data
 docker volume create routecheck-geoip
 ```
 
-2. 拉取最新版镜像
+### 2. 拉取最新版镜像
 ```
 docker pull seven1echo/routecheck:latest
 ```
 
-3. 创建并启动容器
+### 3. 创建并启动容器
 ```
 docker run -d `
   --name routecheck `
