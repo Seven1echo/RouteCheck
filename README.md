@@ -43,14 +43,33 @@ docker run -d \
   seven1echo/routecheck:latest
 ```
 
-### 参数说明
-| 参数 | 说明 |
-|---|---|
-| `-p 8787:8787` | Web 服务端口 |
-| `/opt/routecheck/data:/data` | 持久化应用数据 |
-| `/opt/routecheck/geoip:/geoip` | GeoIP 数据目录 |
-| `TZ=Asia/Shanghai` | 设置容器时区 |
-| `--restart unless-stopped` | Docker 重启后自动启动 |
+
+## 部署到 Windows（Docker Hub 镜像）
+1. 创建 Docker Volume
+创建 RouteCheck 数据卷（）：
+```
+docker volume create routecheck-data
+docker volume create routecheck-geoip
+```
+
+2. 拉取最新版镜像
+```
+docker pull seven1echo/routecheck:latest
+```
+
+3. 创建并启动容器
+```
+docker run -d `
+  --name routecheck `
+  --restart unless-stopped `
+  -p 8787:8787 `
+  -v routecheck-data:/data `
+  -v routecheck-geoip:/geoip `
+  -e TZ=Asia/Shanghai `
+  seven1echo/routecheck:latest
+```
+
+
 
 ### 访问
 容器启动后访问：
@@ -77,22 +96,6 @@ docker stop routecheck
 删除容器：
 ```bash
 docker rm -f routecheck
-```
-
-### 更新到最新版
-```bash
-docker pull seven1echo/routecheck:latest
-
-docker rm -f routecheck
-
-docker run -d \
-  --name routecheck \
-  --restart unless-stopped \
-  -p 8787:8787 \
-  -v /opt/routecheck/data:/data \
-  -v /opt/routecheck/geoip:/geoip \
-  -e TZ=Asia/Shanghai \
-  seven1echo/routecheck:latest
 ```
 
 
