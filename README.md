@@ -36,6 +36,104 @@ docker compose up -d --no-build
 
 如果 Nikki/Mihomo 的控制器只监听本机，需要在 Nikki 的外部控制器设置中开放给 Docker 所在设备访问；不要把控制器端口暴露到公网。
 
+## 部署到 Linux 服务器（Docker Hub 镜像）
+
+不想自己构建镜像时，直接用 Docker Hub 上的 **RouteCheck 部署镜像**。
+
+### 1. 创建数据目录
+
+```bash
+mkdir -p /opt/routecheck/data /opt/routecheck/geoip
+```
+
+### 2. 拉取最新版镜像
+
+```bash
+docker pull seven1echo/routecheck:latest
+```
+
+### 3. 创建并运行容器
+
+```bash
+docker run -d \
+  --name routecheck \
+  --restart unless-stopped \
+  -p 8787:8787 \
+  -v /opt/routecheck/data:/data \
+  -v /opt/routecheck/geoip:/geoip \
+  -e TZ=Asia/Shanghai \
+  seven1echo/routecheck:latest
+```
+
+### 参数说明
+
+| 参数 | 说明 |
+|---|---|
+| `-p 8787:8787` | Web 服务端口 |
+| `/opt/routecheck/data:/data` | 持久化应用数据 |
+| `/opt/routecheck/geoip:/geoip` | GeoIP 数据目录 |
+| `TZ=Asia/Shanghai` | 设置容器时区 |
+| `--restart unless-stopped` | Docker 重启后自动启动 |
+
+### 访问
+
+容器启动后访问：
+
+```text
+http://<服务器IP>:8787
+```
+
+### 常用命令
+
+查看运行状态：
+
+```bash
+docker ps --filter name=routecheck
+```
+
+查看日志：
+
+```bash
+docker logs -f routecheck
+```
+
+停止容器：
+
+```bash
+docker stop routecheck
+```
+
+删除容器：
+
+```bash
+docker rm -f routecheck
+```
+
+### 更新到最新版
+
+```bash
+docker pull seven1echo/routecheck:latest
+
+docker rm -f routecheck
+
+docker run -d \
+  --name routecheck \
+  --restart unless-stopped \
+  -p 8787:8787 \
+  -v /opt/routecheck/data:/data \
+  -v /opt/routecheck/geoip:/geoip \
+  -e TZ=Asia/Shanghai \
+  seven1echo/routecheck:latest
+```
+
+### Docker Image
+
+```text
+seven1echo/routecheck:latest
+```
+
+`latest` 始终指向当前发布的最新版镜像。
+
 ## 网页配置（新增）
 
 打开首页顶部的 **Mihomo 控制器设置** 面板即可在线修改，保存后立即生效并写入数据库，重启容器后依然保留：
