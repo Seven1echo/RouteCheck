@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RouteCheck V2026.9.16</title>
+  <title>RouteCheck V2026.10.10</title>
   <style>
     :root { color-scheme: dark; font-family: system-ui, "Segoe UI", "Microsoft YaHei", sans-serif; }
     * { box-sizing: border-box; }
@@ -96,7 +96,7 @@
 <main>
   <header class="top">
     <h1>RouteCheck</h1>
-    <a class="badge" href="https://github.com/Seven1echo/RouteCheck" target="_blank" rel="noreferrer" title="项目主页">V2026.9.16</a>
+    <a class="badge" href="https://github.com/Seven1echo/RouteCheck" target="_blank" rel="noreferrer" title="项目主页">V2026.10.10</a>
     <span class="pill" id="controller-pill">控制器：未检测</span>
     <span class="pill" id="geoip-pill">GeoIP：未检测</span>
     <div class="header-actions">
@@ -129,8 +129,15 @@
           <option value="all_proxy">全部代理连接</option>
         </select>
       </div>
+      <div><label for="s-cn-match">判定</label>
+        <select id="s-cn-match">
+          <option value="all">全部 IP 属于中国</option>
+          <option value="any">任一 IP 属于中国</option>
+          <option value="first">只按首个 IP</option>
+        </select>
+      </div>
       <div><label for="s-poll">采集间隔（秒）</label><input id="s-poll" inputmode="numeric" placeholder="5"></div>
-      <div class="checkbox"><input type="checkbox" id="s-online"><label for="s-online" style="margin:0">无本地库时在线查询城市</label></div>
+      <div class="checkbox"><input type="checkbox" id="s-online"><label for="s-online" style="margin:0">启用在线 IP 归属地查询</label></div>
     </div>
     <div class="row-actions">
       <button onclick="saveSettings()">保存设置</button>
@@ -208,10 +215,9 @@ const COLUMNS = [
   { key: 'domain', label: '域名', width: 19, sortable: true },
   { key: 'hit_count', label: '命中', width: 5, sortable: true },
   { key: 'status', label: '状态', width: 8, sortable: true },
-  { key: 'score', label: '分数', width: 5, sortable: true },
   { key: 'country', label: '国家', width: 7, sortable: true },
   { key: 'city', label: '城市', width: 8, sortable: true },
-  { key: 'evidence', label: '证据', width: 21.5, sortable: false },
+  { key: 'evidence', label: '证据', width: 26.5, sortable: false },
   { key: 'rule', label: '规则', width: 13, sortable: true },
   { key: 'actions', label: '操作', width: 13.5, sortable: false },
 ];
@@ -227,7 +233,7 @@ function loadPrefs() {
     const saved = JSON.parse(localStorage.getItem(WIDTH_KEY) || 'null');
     if (Array.isArray(saved) && saved.length === COLUMNS.length) widths = saved;
     const savedSort = JSON.parse(localStorage.getItem(SORT_KEY) || 'null');
-    if (savedSort && savedSort.key) sort = savedSort;
+    if (savedSort && savedSort.key && COLUMNS.some(c => c.key === savedSort.key)) sort = savedSort;
   } catch (e) { /* ignore */ }
   if (!widths.length) widths = COLUMNS.map(c => c.width);
 }
@@ -262,7 +268,7 @@ function drawTable() {
 
 function toggleSort(key) {
   if (sort.key === key) sort.dir = sort.dir === 'asc' ? 'desc' : 'asc';
-  else sort = { key, dir: key === 'score' || key === 'hit_count' ? 'desc' : 'asc' };
+  else sort = { key, dir: key === 'hit_count' ? 'desc' : 'asc' };
   try { localStorage.setItem(SORT_KEY, JSON.stringify(sort)); } catch (e) {}
   drawTable();
   render();
@@ -300,7 +306,6 @@ function sortValue(row, key) {
     case 'domain': return row.domain || '';
     case 'hit_count': return Number(row.hit_count || 0);
     case 'status': return row.status || '';
-    case 'score': return Number(row.score || 0);
     case 'country': return `${row.country || ''}${row.country_name || ''}`;
     case 'city': return row.city || '';
     case 'rule': return `${row.rule_type_effective || ''}${row.rule_payload || ''}`;
@@ -346,7 +351,6 @@ function render() {
       <td class="domain">${esc(x.domain)}${cnBadge}</td>
       <td class="center">${x.hit_count}</td>
       <td><span class="tag ${esc(x.status)}">${esc(statusZh(x.status))}</span></td>
-      <td class="center">${Number(x.score || 0).toFixed(2)}</td>
       <td class="center">${countryCell}</td>
       <td>${location}</td>
       <td class="evidence"><div class="reason">${esc(x.reason)}</div>
@@ -370,6 +374,7 @@ async function loadSettings() {
   document.querySelector('#s-port').value = s.mihomo_port || '';
   document.querySelector('#s-secret').value = s.mihomo_secret || '';
   document.querySelector('#s-mode').value = s.capture_mode || 'leak_rule';
+  document.querySelector('#s-cn-match').value = s.cn_match_mode || 'all';
   document.querySelector('#s-poll').value = s.poll_interval || 5;
   document.querySelector('#s-online').checked = !!s.online_geo_lookup;
   document.querySelector('#g-country-url').value = s.geoip_country_url || '';
@@ -400,6 +405,7 @@ async function saveSettings() {
       mihomo_port: document.querySelector('#s-port').value,
       mihomo_secret: document.querySelector('#s-secret').value,
       capture_mode: document.querySelector('#s-mode').value,
+      cn_match_mode: document.querySelector('#s-cn-match').value,
       poll_interval: document.querySelector('#s-poll').value,
       online_geo_lookup: document.querySelector('#s-online').checked,
     });

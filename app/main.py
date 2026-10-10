@@ -280,7 +280,6 @@ async def direct_rules_json():
                 "country": row.get("country", ""),
                 "flag": flag_for(row.get("country")),
                 "city": row.get("city", ""),
-                "score": round(float(row.get("score") or 0), 3),
                 "rule_type": effective_rule_type(row["domain"], row.get("rule_type")),
                 "rule_payload": rule_payload(row["domain"], effective_rule_type(row["domain"], row.get("rule_type"))),
                 "rule_override": bool(row.get("rule_type")),

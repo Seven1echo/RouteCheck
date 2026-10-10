@@ -9,12 +9,14 @@ from .db import settings_delete_all, settings_get_all, settings_put_all
 
 
 CAPTURE_MODES = ("leak_rule", "all_proxy")
+CN_MATCH_MODES = ("all", "any", "first")
 OVERRIDE_KEYS = (
     "mihomo_host",
     "mihomo_port",
     "mihomo_secret",
     "poll_interval",
     "capture_mode",
+    "cn_match_mode",
     "online_geo_lookup",
     "geoip_country_url",
     "geoip_city_url",
@@ -83,12 +85,16 @@ def _effective() -> dict[str, Any]:
     mode = str(_overrides.get("capture_mode") or settings.capture_mode).lower()
     if mode not in CAPTURE_MODES:
         mode = "leak_rule"
+    cn_match_mode = str(_overrides.get("cn_match_mode") or settings.cn_match_mode).lower()
+    if cn_match_mode not in CN_MATCH_MODES:
+        cn_match_mode = "all"
     return {
         "mihomo_host": host,
         "mihomo_port": port,
         "mihomo_secret": secret,
         "poll_interval": max(2, _to_int(_overrides.get("poll_interval"), settings.poll_interval)),
         "capture_mode": mode,
+        "cn_match_mode": cn_match_mode,
         "online_geo_lookup": _to_bool(_overrides.get("online_geo_lookup"), settings.online_geo_lookup),
         "geoip_country_url": str(_overrides.get("geoip_country_url") or settings.geoip_country_url),
         "geoip_city_url": str(_overrides.get("geoip_city_url") or settings.geoip_city_url),
@@ -106,6 +112,7 @@ def defaults() -> dict[str, Any]:
         "mihomo_secret": settings.mihomo_secret,
         "poll_interval": settings.poll_interval,
         "capture_mode": settings.capture_mode if settings.capture_mode in CAPTURE_MODES else "leak_rule",
+        "cn_match_mode": settings.cn_match_mode if settings.cn_match_mode in CN_MATCH_MODES else "all",
         "online_geo_lookup": settings.online_geo_lookup,
         "geoip_country_url": settings.geoip_country_url,
         "geoip_city_url": settings.geoip_city_url,
@@ -127,6 +134,7 @@ def snapshot() -> dict[str, Any]:
     data["defaults"] = defaults()
     data["overridden"] = sorted(key for key in _overrides if key in OVERRIDE_KEYS)
     data["capture_modes"] = list(CAPTURE_MODES)
+    data["cn_match_modes"] = list(CN_MATCH_MODES)
     return data
 
 
@@ -162,6 +170,11 @@ async def update(values: dict[str, Any]) -> dict[str, Any]:
         if mode not in CAPTURE_MODES:
             raise ValueError("采集模式必须是 leak_rule 或 all_proxy")
         clean["capture_mode"] = mode
+    if "cn_match_mode" in values:
+        match_mode = str(values.get("cn_match_mode") or "").strip().lower()
+        if match_mode not in CN_MATCH_MODES:
+            raise ValueError("判定模式必须是 all、any 或 first")
+        clean["cn_match_mode"] = match_mode
     if "online_geo_lookup" in values:
         clean["online_geo_lookup"] = "1" if _to_bool(values.get("online_geo_lookup"), False) else "0"
     for key in ("geoip_country_url", "geoip_city_url"):
@@ -203,6 +216,10 @@ def poll_interval() -> int:
 
 def capture_mode() -> str:
     return str(_effective()["capture_mode"])
+
+
+def cn_match_mode() -> str:
+    return str(_effective()["cn_match_mode"])
 
 
 def online_geo_lookup() -> bool:

@@ -54,7 +54,6 @@ async def init_db() -> None:
               last_seen TEXT NOT NULL,
               hit_count INTEGER NOT NULL DEFAULT 1,
               status TEXT NOT NULL DEFAULT 'pending',
-              score REAL NOT NULL DEFAULT 0,
               reason TEXT NOT NULL DEFAULT '',
               evidence_json TEXT NOT NULL DEFAULT '{}',
               last_rule TEXT NOT NULL DEFAULT '',
@@ -113,6 +112,8 @@ async def list_domains(status: str | None = None, limit: int = 500) -> list[dict
     result = []
     for row in rows:
         item = dict(row)
+        # Older databases may still have this unused column.
+        item.pop("score", None)
         item["evidence"] = json.loads(item.pop("evidence_json") or "{}")
         item["is_cn"] = bool(item.get("is_cn"))
         item["direct_ok"] = bool(item.get("direct_ok"))
@@ -143,7 +144,6 @@ async def list_for_analysis(scope: str, limit: int = 50) -> list[dict[str, Any]]
 
 async def update_analysis(
     domain: str,
-    score: float,
     reason: str,
     evidence: dict[str, Any],
     status: str,
@@ -157,12 +157,11 @@ async def update_analysis(
     async with aiosqlite.connect(settings.database_path) as db:
         await db.execute(
             """
-            UPDATE domains SET score=?, reason=?, evidence_json=?, status=?, country=?, country_name=?, city=?,
+            UPDATE domains SET reason=?, evidence_json=?, status=?, country=?, country_name=?, city=?,
                    is_cn=?, direct_ok=?, cn_direct=?, updated_at=?
             WHERE domain=?
             """,
             (
-                score,
                 reason,
                 json.dumps(evidence, ensure_ascii=False),
                 status,
@@ -208,7 +207,6 @@ IMPORT_COLUMNS = (
     "last_seen",
     "hit_count",
     "status",
-    "score",
     "reason",
     "evidence_json",
     "last_rule",
@@ -241,17 +239,12 @@ def _import_row(item: dict[str, Any]) -> dict[str, Any]:
         hit_count = max(1, int(item.get("hit_count") or 1))
     except (TypeError, ValueError):
         hit_count = 1
-    try:
-        score = float(item.get("score") or 0)
-    except (TypeError, ValueError):
-        score = 0.0
     return {
         "domain": str(item.get("domain") or "").strip().lower(),
         "first_seen": str(item.get("first_seen") or ts),
         "last_seen": str(item.get("last_seen") or ts),
         "hit_count": hit_count,
         "status": status,
-        "score": score,
         "reason": str(item.get("reason") or ""),
         "evidence_json": evidence_json,
         "last_rule": str(item.get("last_rule") or ""),

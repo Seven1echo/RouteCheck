@@ -94,9 +94,13 @@ def status_for(kind: str) -> dict[str, Any]:
 
 
 def status() -> dict[str, Any]:
+    files = {kind: status_for(kind) for kind in KINDS}
+    download = dict(_state)
+    if not download["running"] and download["message"] == "尚未下载过" and any(item["exists"] for item in files.values()):
+        download.update({"ok": True, "message": "已检测到已有数据库，无需重新下载"})
     return {
-        "files": {kind: status_for(kind) for kind in KINDS},
-        "download": dict(_state),
+        "files": files,
+        "download": download,
         "auto_download": runtime_config.auto_download_geoip(),
     }
 

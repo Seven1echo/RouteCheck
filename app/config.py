@@ -41,7 +41,7 @@ class Settings:
     analyze_interval: int = _int("ANALYZE_INTERVAL_SECONDS", 60)
     analyze_concurrency: int = max(1, min(16, _int("ANALYZE_CONCURRENCY", 4)))
     probe_timeout: int = _int("DIRECT_PROBE_TIMEOUT_SECONDS", 5)
-    auto_direct_score: float = _float("AUTO_DIRECT_SCORE", 0.85)
+    cn_match_mode: str = os.getenv("CN_MATCH_MODE", "all").strip().lower()
     geoip_db_path: str = os.getenv("GEOIP_DB_PATH", "/geoip/GeoLite2-Country.mmdb")
     geoip_city_db_path: str = os.getenv("GEOIP_CITY_DB_PATH", "/geoip/GeoLite2-City.mmdb")
     geoip_country_url: str = os.getenv(
@@ -54,10 +54,8 @@ class Settings:
     )
     auto_download_geoip: bool = _bool("AUTO_DOWNLOAD_GEOIP", True)
     online_geo_lookup: bool = _bool("ONLINE_GEO_LOOKUP", True)
-    geo_lookup_url: str = os.getenv(
-        "GEO_LOOKUP_URL",
-        "http://ip-api.com/json/{ip}?lang=zh-CN&fields=status,message,country,countryCode,regionName,city",
-    )
+    geo_lookup_url: str = os.getenv("GEO_LOOKUP_URL", "http://ip-api.com")
+    geo_fallback_url: str = os.getenv("GEO_FALLBACK_URL", "https://ipwho.is/{ip}?lang=zh")
     geo_lookup_timeout: int = _int("GEO_LOOKUP_TIMEOUT_SECONDS", 4)
     database_path: str = os.getenv("DATABASE_PATH", "/data/routecheck.db")
 

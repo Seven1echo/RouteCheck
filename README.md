@@ -9,9 +9,9 @@
 1. 周期调用 Mihomo 控制器的 `GET /connections`。
 2. 默认只采集最终规则命中 `MATCH` / `漏网之鱼` 且实际走了代理链的连接。
 3. 域名去重并记录命中次数、最近出现时间、规则、策略链和目标地址。
-4. 对待分析域名执行直连 DNS、直连 HTTP/TLS 探测，并做 IP 归属判定（国家 + 城市）。
-5. 直连探测成功且解析地址全部为国内 IP 时，域名会带上 🇨🇳 标注，并可看到 IP 所属城市。
-6. 只有高置信度结果才进入“建议直连”，人工批准后才会进入导出规则。
+4. 对待分析域名先使用系统 DNS；失败或返回 fake-ip 时，依次使用阿里、腾讯、Cloudflare DoH。
+5. 归属地优先使用 ip-api.com 批量查询，失败的 IP 再逐个使用 ipwho.is 兜底，并做 IP 归属判定（国家 + 城市）。
+6. 默认所有解析 IP 的 `countryCode` 都为 `CN` 才进入“建议直连”；网页“判定”下拉框也可以改为任一 IP 或首个 IP。
 
 > 这是辅助工具，不可能仅凭一次连接 100% 判断“应该直连”。默认策略偏保守：探测失败或 GeoIP 不明确的域名保留为待审核。
 > 如果 Nikki/Mihomo 的控制器只监听本机，需要在 Nikki 的外部控制器设置中开放给 Docker 所在设备访问；不要把控制器端口暴露到公网。
@@ -106,8 +106,9 @@ docker rm -f routecheck
 | 端口 | external-controller 端口，默认 `9090` |
 | 密钥 | external-controller secret，留空表示无密钥 |
 | 采集模式 | `仅漏网之鱼 / MATCH` 或 `全部代理连接` |
+| 判定 | `全部 IP 属于中国`、`任一 IP 属于中国` 或 `只按首个 IP` |
 | 采集间隔 | 轮询 `/connections` 的间隔（秒，最小 2） |
-| 在线查询城市 | 本地没有城市库时，允许用 HTTP 接口查询城市名 |
+| 在线 IP 归属地查询 | 使用 ip-api.com 批量查询，失败时用 ipwho.is 逐 IP 兜底 |
 
 按钮说明：**保存设置** 写库并热生效；**测试连接** 请求 `/version`、`/connections`、`/dns/query` 并显示结果；**恢复环境变量默认** 清除网页覆盖值。
 
@@ -132,9 +133,16 @@ docker rm -f routecheck
 
 - **国家** 列：只显示国家缩写 + 中文名，例如 `CN 中国`、`US 美国`（不再叠国旗，避免重复）。
 - **城市** 列：显示国内城市，例如 `广东深圳`（本地城市库或在线查询得出）。
-- 只有“直连探测成功 + 解析地址全部为国内 IP”时，域名后面才会追加 🇨🇳 标记（`cn_direct`）。
+- 只有“直连探测成功 + 按当前‘判定’模式归属为中国”时，域名后面才会追加 🇨🇳 标记（`cn_direct`）。
 
-城市信息优先来自本地 `GeoLite2-City.mmdb`，其次是 `GeoLite2-Country.mmdb`（只能给国家），最后才是可选的在线查询。也可以自己把数据库放进 `./geoip/` 目录：
+归属地查询顺序如下：
+
+1. `ONLINE_GEO_LOOKUP=1` 时，先把所有解析 IP 批量提交给 `ip-api.com`。
+2. ip-api.com 返回失败的 IP，再逐个请求 `ipwho.is`。
+3. 在线服务仍失败时，读取本地 `GeoLite2-City.mmdb`；城市库查不到时再读取 `GeoLite2-Country.mmdb`。
+4. `ONLINE_GEO_LOOKUP=0` 时跳过在线服务，直接使用本地城市库和国家库。
+
+本地数据库默认路径是容器内的 `/geoip/GeoLite2-City.mmdb` 和 `/geoip/GeoLite2-Country.mmdb`。Docker 部署时需要保留 `-v /opt/routecheck/geoip:/geoip` 挂载，也可以自己把数据库放进项目的 `./geoip/` 目录：
 
 ```text
 geoip/GeoLite2-City.mmdb
@@ -157,9 +165,10 @@ geoip/GeoLite2-Country.mmdb
 | `GEOIP_CITY_DB_PATH` | `/geoip/GeoLite2-City.mmdb` | 可选 MaxMind 城市库（推荐，能出城市） |
 | `GEOIP_COUNTRY_URL` / `GEOIP_CITY_URL` | MetaCubeX / P3TERX | 网页里的默认下载地址 |
 | `AUTO_DOWNLOAD_GEOIP` | `1` | 启动时自动下载缺失的库 |
-| `ONLINE_GEO_LOOKUP` | `1` | 本地库无城市时是否在线查询城市 |
-| `GEO_LOOKUP_URL` | `ip-api.com` 模板 | 在线查询地址模板，需包含 `{ip}` |
-| `AUTO_DIRECT_SCORE` | `0.85` | 自动进入建议直连的最低分数 |
+| `ONLINE_GEO_LOOKUP` | `1` | 是否启用在线查询；关闭后直接使用本地城市库/国家库 |
+| `GEO_LOOKUP_URL` | `http://ip-api.com` | ip-api.com 批量查询服务地址 |
+| `GEO_FALLBACK_URL` | `https://ipwho.is/{ip}?lang=zh` | ipwho.is 单 IP 兜底地址 |
+| `CN_MATCH_MODE` | `all` | 中国判定：`all` 全部 IP、`any` 任一 IP、`first` 首个 IP |
 | `DATABASE_PATH` | `/data/routecheck.db` | SQLite 数据库路径 |
 
 ## 八、接入 Nikki 规则
@@ -202,5 +211,5 @@ geoip/GeoLite2-Country.mmdb
 
 - `connections` 是活动连接快照，短连接可能在下一次轮询前结束；生产环境建议把轮询设为 2~5 秒。
 - QUIC/UDP 连接的域名是否可见取决于 Mihomo sniff 设置；如只能看到 IP，工具不会把 IP 强行转换成域名。
-- 在线城市查询会把解析到的 IP 发送给 `GEO_LOOKUP_URL`（默认 ip-api.com），需要完全离线时把 `ONLINE_GEO_LOOKUP=0` 或在网页里取消勾选。
+- 在线 IP 归属地查询会把解析到的 IP 发送给 ip-api.com 或 ipwho.is；需要完全离线时把 `ONLINE_GEO_LOOKUP=0` 或在网页里取消勾选。
 - 不建议把所有“代理成功访问”的域名自动改成直连。CDN、登录、鉴权、API 域名常常需要按业务拆分。

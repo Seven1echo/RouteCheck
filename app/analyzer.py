@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
-import socket
 from typing import Any
 
 import httpx
@@ -10,8 +9,9 @@ import httpx
 from .config import APP_VERSION, settings
 from .countries import country_name_zh
 from .db import ANALYSIS_SCOPES, list_for_analysis, update_analysis
-from .geo import flag_for, format_city, lookup_geo
-from .mihomo import query_dns
+from .geo import flag_for, format_city, lookup_geo_batch
+from .dns import resolve_domain, resolve_system
+from . import runtime_config
 
 
 async def direct_probe(domain: str) -> dict[str, Any]:
@@ -32,8 +32,7 @@ async def direct_probe(domain: str) -> dict[str, Any]:
 
 async def resolve_fallback(domain: str) -> list[str]:
     try:
-        infos = await asyncio.to_thread(socket.getaddrinfo, domain, 443, type=socket.SOCK_STREAM)
-        return sorted({item[4][0] for item in infos})
+        return await resolve_system(domain)
     except OSError:
         return []
 
@@ -47,14 +46,26 @@ def _is_private(addresses: list[str]) -> bool:
         return False
 
 
+def _matches_cn(geo: list[dict[str, Any]], mode: str) -> bool:
+    if not geo:
+        return False
+    codes = [str(item.get("country") or "").upper() for item in geo]
+    if mode == "any":
+        return any(code == "CN" for code in codes)
+    if mode == "first":
+        return codes[0] == "CN"
+    # The default is deliberately conservative: unknown or non-CN IPs fail too.
+    return len(codes) == len(geo) and all(code == "CN" for code in codes)
+
+
 async def analyze_domain(domain: str) -> dict[str, Any]:
     try:
-        addresses = await query_dns(domain)
+        addresses, resolver = await resolve_domain(domain)
     except Exception:
-        addresses = await resolve_fallback(domain)
+        addresses, resolver = [], "unresolved"
 
     probe = await direct_probe(domain)
-    geo: list[dict[str, Any]] = list(await asyncio.gather(*(lookup_geo(ip) for ip in addresses))) if addresses else []
+    geo: list[dict[str, Any]] = await lookup_geo_batch(addresses) if addresses else []
 
     countries = sorted({str(item.get("country") or "") for item in geo if item.get("country")})
     cn_entries = [item for item in geo if item.get("country") == "CN"]
@@ -63,36 +74,36 @@ async def analyze_domain(domain: str) -> dict[str, Any]:
     country = countries[0] if len(countries) == 1 else ""
     country_name = str(primary.get("country_name") or "") or country_name_zh(country)
     city = format_city(primary) if primary else ""
-    is_cn = bool(countries) and countries == ["CN"]
+    match_mode = runtime_config.cn_match_mode()
+    is_cn = _matches_cn(geo, match_mode)
     direct_ok = bool(probe.get("ok"))
     cn_direct = is_cn and direct_ok
     private = _is_private(addresses)
     cn_tld = domain.endswith((".cn", ".中国", ".公司", ".网络"))
 
-    score = 0.0
     reasons: list[str] = []
-    if private:
-        score += 1.0
-        reasons.append("解析结果属于内网/保留地址")
+    reasons.append(f"DNS：{resolver}")
     if direct_ok:
-        score += 0.25
         reasons.append(f"直连探测成功（{probe.get('scheme')} {probe.get('status_code')}）")
-    if cn_tld:
-        score += 0.35
-        reasons.append("域名使用中国相关后缀")
     if is_cn:
-        score += 0.65
         flag = flag_for("CN")
-        reasons.append(f"解析地址均为国内 IP {flag}".strip())
+        mode_text = {"all": "全部", "any": "任一", "first": "首个"}.get(match_mode, "全部")
+        reasons.append(f"按{mode_text} IP 判定为中国（countryCode=CN） {flag}".strip())
         if city:
             reasons.append(f"归属地：{city}")
-    if any(item.get("country") and item.get("country") != "CN" for item in geo):
-        score -= 0.6
+    else:
+        if not geo:
+            reasons.append("没有解析到 IP")
+        elif any(item.get("country") and item.get("country") != "CN" for item in geo):
+            reasons.append("存在 countryCode 非 CN 的解析地址")
+        else:
+            reasons.append("IP 归属地查询失败，无法判定为中国")
+    if private:
         reasons.append("存在非中国解析地址")
-    score = max(0.0, min(1.0, score))
 
     evidence = {
         "addresses": addresses,
+        "resolver": resolver,
         "geo": geo,
         "countries": countries,
         "country": country,
@@ -103,14 +114,11 @@ async def analyze_domain(domain: str) -> dict[str, Any]:
         "direct_probe": probe,
         "cn_tld": cn_tld,
         "private": private,
-        "score": round(score, 3),
+        "cn_match_mode": match_mode,
     }
-    status = "direct_candidate" if score >= settings.auto_direct_score else "review"
-    if private:
-        status = "direct_candidate"
+    status = "direct_candidate" if is_cn else "review"
     return {
         "domain": domain,
-        "score": score,
         "reason": "；".join(reasons) or "证据不足，建议人工审核",
         "evidence": evidence,
         "status": status,
@@ -138,7 +146,6 @@ async def analyze_batch(scope: str = "pending", limit: int = 50) -> dict[str, An
             status = item["status"] if item["status"] in KEEP_STATUS else result["status"]
             await update_analysis(
                 item["domain"],
-                result["score"],
                 result["reason"],
                 result["evidence"],
                 status,
